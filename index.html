@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Immutable Tags Monitor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%237c3aed'/%3E%3Ctext x='50' y='68' font-size='42' font-family='system-ui, sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3EIT%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1116;
+  --surface: #161922;
+  --surface-2: #1d2130;
+  --border: #262b3a;
+  --text: #e7eaf3;
+  --text-dim: #8b92a8;
+  --primary: #4f8cff;
+  --primary-hover: #6ba0ff;
+  --violet: #7c3aed;
+  --violet-hover: #8b5cf6;
+  --violet-soft: rgba(124, 58, 237, 0.15);
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --unknown: #6b7280;
+  --unknown-soft: rgba(107, 114, 128, 0.18);
+  --radius: 12px;
+  --p1: #ef4444;
+  --p2: #f59e0b;
+  --p3: #4f8cff;
+  --p4: #a855f7;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px; line-height: 1.5; min-height: 100vh;
+}
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Header */
+.header {
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #131722 0%, #0f1116 100%);
+  position: sticky; top: 0; z-index: 50;
+}
+.header-inner {
+  max-width: 1280px; margin: 0 auto; padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-icon {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  border-radius: 12px; font-size: 22px; color: white;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+}
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.subtitle { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+.header-stats { display: flex; gap: 24px; }
+.stat { display: flex; flex-direction: column; align-items: flex-end; }
+.stat-value { font-size: 22px; font-weight: 700; }
+.stat-value.warning { color: var(--warning); }
+.stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Top bar (template + db) */
+.template-bar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  position: relative; z-index: 40;
+}
+.template-bar-inner {
+  max-width: 1280px; margin: 0 auto; padding: 12px 24px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.topbar-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: all 0.2s;
+}
+.topbar-btn:hover { background: var(--border); border-color: #3a4155; }
+.topbar-btn .chev { transition: transform 0.2s ease; }
+.topbar-btn.active { 
+  background: var(--violet-soft); 
+  color: #d8b4fe; 
+  border-color: var(--violet); 
+}
+.topbar-btn.active .chev { transform: rotate(180deg); }
+
+/* Dropdowns */
+.template-dropdown {
+  background: var(--surface-2); border-bottom: 1px solid var(--border);
+  max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+}
+.template-dropdown.open { max-height: 520px; }
+.template-inner {
+  max-width: 1280px; margin: 0 auto; padding: 20px 24px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+}
+.template-body {
+  flex: 1;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+  color: var(--text-dim); white-space: pre-wrap; line-height: 1.6;
+  background: var(--bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border);
+  max-width: 800px;
+}
+.copy-template-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--violet); color: white; border: none;
+  padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background 0.2s;
+}
+.copy-template-btn:hover { background: var(--violet-hover); }
+
+/* Add-for-DB dropdown */
+.db-dropdown {
+  background: var(--surface-2); border-bottom: 1px solid var(--border);
+  max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+}
+.db-dropdown.open { max-height: 620px; }
+.db-inner {
+  max-width: 1280px; margin: 0 auto; padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.db-title { font-size: 14px; font-weight: 600; }
+.db-title small { font-weight: 400; color: var(--text-dim); margin-left: 6px; font-size: 12px; }
+.db-grid {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 14px;
+}
+.db-cell { display: flex; flex-direction: column; gap: 6px; }
+.db-cell label { font-size: 12px; font-weight: 600; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.db-cell textarea { min-height: 130px; border-left: 3px solid var(--violet); }
+.db-cell textarea:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(124,58,237,0.18); }
+.db-cell input[type="date"] { cursor: pointer; }
+.db-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Main */
+.main {
+  flex: 1; max-width: 1280px; width: 100%;
+  margin: 0 auto; padding: 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.card-header { margin-bottom: 16px; }
+.card-header h2 { font-size: 16px; font-weight: 600; }
+.hint { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.form-group label { font-size: 12px; font-weight: 500; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+input, textarea, select {
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 10px 12px;
+  font-family: inherit; font-size: 14px;
+  transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
+}
+input:disabled { opacity: 0.6; cursor: not-allowed; }
+textarea { resize: vertical; min-height: 110px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; }
+
+/* 4-column priority grid */
+.prio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.prio-cell { display: flex; flex-direction: column; gap: 6px; }
+.prio-cell label { font-size: 12px; font-weight: 600; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.prio-cell textarea { min-height: 120px; }
+
+.p1-area { border-left: 3px solid var(--p1); }
+.p2-area { border-left: 3px solid var(--p2); }
+.p3-area { border-left: 3px solid var(--p3); }
+.p4-area { border-left: 3px solid var(--p4); }
+.p1-area:focus { border-color: var(--p1); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
+.p2-area:focus { border-color: var(--p2); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+.p3-area:focus { border-color: var(--p3); box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15); }
+.p4-area:focus { border-color: var(--p4); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15); }
+
+.actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: #3a4155; background: var(--surface-2); }
+.btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--border); }
+.btn-success { background: var(--success); color: white; border: none; }
+.btn-success:hover { background: #059669; transform: translateY(-1px); }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { background: #dc2626; }
+.btn-violet { background: var(--violet); color: white; }
+.btn-violet:hover { background: var(--violet-hover); }
+.btn-violet:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-excel { background: #107c41; color: white; border: none; }
+.btn-excel:hover { background: #0c5e31; transform: translateY(-1px); }
+.form-msg { font-size: 13px; margin-left: 8px; }
+.form-msg.ok { color: var(--success); }
+.form-msg.err { color: var(--danger); }
+
+.filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.search { flex: 1; min-width: 200px; }
+.select { min-width: 130px; cursor: pointer; }
+.date-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.date-wrap input[type="date"] { padding: 8px 10px; min-width: 150px; cursor: pointer; }
+.date-chip {
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-dim); cursor: pointer;
+  font-size: 12px; font-weight: 500; font-family: inherit;
+  transition: all 0.15s;
+}
+.date-chip:hover { color: var(--text); border-color: #3a4155; }
+.date-chip.active { background: var(--violet-soft); color: #d8b4fe; border-color: var(--violet); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left; padding: 12px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody td { padding: 14px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+tbody tr.duplicate { background: var(--danger-soft); }
+tbody tr.duplicate:hover { background: rgba(239, 68, 68, 0.16); }
+.url-cell { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #c4cae0; word-break: break-all; }
+.priority-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+}
+.priority-badge.p-P1 { background: rgba(239,68,68,0.15); color: var(--p1); }
+.priority-badge.p-P2 { background: rgba(245,158,11,0.15); color: var(--p2); }
+.priority-badge.p-P3 { background: rgba(79,140,255,0.15); color: var(--p3); }
+.priority-badge.p-P4 { background: rgba(168,85,247,0.15); color: var(--p4); }
+.priority-badge.p-Unknown {
+  background: var(--unknown-soft); color: #9ca3af; font-style: italic;
+}
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.badge-unique { background: var(--success-soft); color: var(--success); }
+.badge-duplicate { background: var(--danger-soft); color: var(--danger); }
+.badge-new { background: rgba(79, 140, 255, 0.2); color: var(--primary); border: 1px solid rgba(79, 140, 255, 0.4); margin-left: 6px; }
+.date-cell { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
+.user-cell { font-size: 13px; color: var(--text); font-weight: 500; }
+.row-actions { display: flex; gap: 6px; }
+.icon-btn {
+  width: 32px; height: 32px; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer;
+  transition: all 0.15s;
+}
+.icon-btn:hover { color: var(--text); border-color: #3a4155; background: var(--surface-2); }
+.icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.icon-btn.success:hover { color: var(--success); border-color: var(--success); background: var(--success-soft); }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; color: #3a4155; }
+.footer {
+  text-align: center; padding: 20px; font-size: 12px;
+  color: var(--text-dim); border-top: 1px solid var(--border);
+}
+.pagination-container {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 16px; border-top: 1px solid var(--border); margin-top: 16px;
+  flex-wrap: wrap; gap: 12px;
+}
+.page-info { font-size: 13px; color: var(--text-dim); }
+.page-controls { display: flex; gap: 8px; align-items: center; }
+
+/* Modals */
+.modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal.hidden { display: none !important; }
+.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+.modal-content {
+  position: relative; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; width: 100%; max-width: 480px; margin: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  z-index: 101;
+}
+.modal-content h3 { font-size: 18px; margin-bottom: 16px; }
+.modal-content p { color: var(--text-dim); margin-bottom: 20px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* Batch / Report Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.modal-overlay.show { opacity: 1; pointer-events: auto; }
+.modal-overlay::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(15, 17, 22, 0.75); backdrop-filter: blur(8px);
+}
+.batch-modal {
+  position: relative; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 16px;
+  width: 100%; max-width: 720px; margin: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  transform: scale(0.95) translateY(10px);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden; z-index: 101;
+  display: flex; flex-direction: column; max-height: 88vh;
+}
+.modal-overlay.show .batch-modal { transform: scale(1) translateY(0); }
+.batch-header {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0) 100%);
+  padding: 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+}
+.batch-title { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; color: var(--text); }
+.batch-title svg { color: var(--success); width: 24px; height: 24px; }
+.batch-subtitle { font-size: 13px; color: var(--text-dim); margin-top: 6px; margin-left: 36px; }
+.modal-close-btn {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-dim); padding: 4px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close-btn:hover { background: var(--surface-2); color: var(--text); }
+.batch-content { padding: 24px; overflow-y: auto; flex: 1; }
+.url-chips-container { display: flex; flex-wrap: wrap; gap: 10px; }
+.url-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 12px; border-radius: 8px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px;
+  transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.url-chip:hover { border-color: var(--success); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15); }
+.url-chip svg { width: 14px; height: 14px; color: var(--success); flex-shrink: 0; }
+.batch-footer {
+  padding: 20px 24px; background: var(--surface-2); border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap;
+}
+.batch-empty { color: var(--text-dim); font-size: 14px; font-style: italic; text-align: center; padding: 20px; }
+
+/* Batch sub-group */
+.batch-group { margin-bottom: 18px; }
+.batch-group:last-child { margin-bottom: 0; }
+.batch-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; gap: 10px; flex-wrap: wrap;
+}
+.batch-group-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600;
+}
+.batch-group-count { font-size: 12px; color: var(--text-dim); }
+
+/* Day Report Modal */
+.report-group {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+}
+.report-group.p-P1 { border-left: 3px solid var(--p1); }
+.report-group.p-P2 { border-left: 3px solid var(--p2); }
+.report-group.p-P3 { border-left: 3px solid var(--p3); }
+.report-group.p-P4 { border-left: 3px solid var(--p4); }
+.report-group.p-Unknown { border-left: 3px solid var(--unknown); }
+.report-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; gap: 10px; flex-wrap: wrap;
+}
+.report-group-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.report-group-counts { font-size: 12px; color: var(--text-dim); }
+.report-group-counts strong { color: var(--text); }
+.report-copy-btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-dim); padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit;
+  transition: all 0.15s;
+}
+.report-copy-btn:hover { color: var(--success); border-color: var(--success); background: var(--success-soft); }
+.report-url-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.report-url-list li {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px;
+  color: #c4cae0; padding: 4px 8px; border-radius: 4px;
+  background: var(--bg); word-break: break-all;
+}
+.report-empty { color: var(--text-dim); font-size: 13px; font-style: italic; padding: 8px 0; }
+.report-summary {
+  background: var(--violet-soft); border: 1px solid var(--violet);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+  font-size: 13px; color: #d8b4fe;
+}
+.report-summary strong { color: white; }
+.report-unknown-warn {
+  background: var(--warning-soft); border: 1px solid var(--warning);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+  font-size: 12px; color: var(--warning);
+}
+
+/* Toast & Loading */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); padding: 14px 20px; border-radius: 10px;
+  font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  opacity: 0; transform: translateY(20px); pointer-events: none;
+  transition: all 0.3s; z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.ok { border-left: 3px solid var(--success); }
+.toast.err { border-left: 3px solid var(--danger); }
+.bulk-info { font-size: 13px; color: var(--text-dim); margin-right: auto; }
+.bulk-info strong { color: var(--text); }
+.bulk-info .duplicate-warning { color: var(--warning); display: block; margin-top: 4px; font-weight: 500; }
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(15, 17, 22, 0.8); backdrop-filter: blur(5px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.loading-overlay.show { opacity: 1; pointer-events: auto; }
+.spinner {
+  width: 40px; height: 40px; border: 4px solid var(--border);
+  border-top-color: var(--violet); border-radius: 50%;
+  animation: spin 1s linear infinite; margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-weight: 500; font-size: 16px; color: var(--text); }
+
+@media (max-width: 720px) {
+  .prio-grid { grid-template-columns: 1fr; }
+  .db-grid { grid-template-columns: 1fr; }
+  .filters { flex-direction: column; align-items: stretch; }
+  .actions { flex-direction: column; align-items: stretch; }
+  .form-msg { margin-left: 0; text-align: center; margin-top: 8px; }
+  .bulk-info { text-align: center; margin-bottom: 8px; }
+  .batch-header { flex-direction: column; align-items: flex-start; }
+  .batch-footer { flex-direction: column; align-items: stretch; }
+  .modal-close-btn { position: absolute; top: 16px; right: 16px; }
+  .pagination-container { flex-direction: column; text-align: center; }
+  .template-inner { flex-direction: column; align-items: stretch; }
+  .copy-template-btn { align-self: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </div>
+        <div>
+          <h1>Immutable Tags</h1>
+          <p class="subtitle">P1 – P4 Monitoring · Duplicate Detection</p>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="stat"><span class="stat-value" id="totalCount">0</span><span class="stat-label">Total</span></div>
+        <div class="stat"><span class="stat-value" id="uniqueCount">0</span><span class="stat-label">Unique</span></div>
+        <div class="stat"><span class="stat-value warning" id="dupCount">0</span><span class="stat-label">Duplicates</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Top bar: two side-by-side toggle buttons -->
+  <div class="template-bar">
+    <div class="template-bar-inner">
+      <button id="toggleTemplateBtn" class="topbar-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        Immutable Tags Template
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+
+      <button id="toggleDbBtn" class="topbar-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+        Add for Database
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Template dropdown -->
+  <div id="templateDropdown" class="template-dropdown">
+    <div class="template-inner">
+      <div class="template-body" id="templateText">Dear NSG Immutable Team
+
+This URL with the Immutable tag is from (mention P1/P2/P3/P4, inquiry, anything else)
+The category has been reviewed and updated, so please check the tags.
+
+URL:
+[Insert URL]
+
+Thank you.</div>
+      <button id="copyTemplateBtn" class="copy-template-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy
+      </button>
+    </div>
+  </div>
+
+  <!-- Add for Database dropdown -->
+  <div id="dbDropdown" class="db-dropdown">
+    <div class="db-inner">
+      <div class="db-title">➕ Add for Database <small>backdated · saved as Unknown priority, edit later to P1–P4</small></div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="dbUserInput">Your Name / Email (Required)</label>
+        <input type="text" id="dbUserInput" placeholder="e.g. John Doe" maxlength="50" />
+      </div>
+
+      <div class="db-grid">
+        <div class="db-cell">
+          <label for="dbUrlInput">URLs (one per line)</label>
+          <textarea id="dbUrlInput" rows="7" placeholder="https://www.example.com&#10;http://192.168.1.1:80"></textarea>
+        </div>
+        <div class="db-cell">
+          <label for="dbDateInput">Date to record as added</label>
+          <input type="date" id="dbDateInput" />
+          <span class="hint" style="margin-top:6px;">Defaults to today. Backdating allowed.</span>
+        </div>
+      </div>
+
+      <div class="db-actions">
+        <span class="bulk-info" id="dbBulkInfo"></span>
+        <button id="dbClearBtn" class="btn btn-ghost">Clear</button>
+        <button id="dbAddBtn" class="btn btn-violet" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add for Database
+        </button>
+        <span id="dbFormMsg" class="form-msg"></span>
+      </div>
+    </div>
+  </div>
+
+  <main class="main">
+    <section class="card add-card">
+      <div class="card-header">
+        <h2>Add URLs — P1 / P2 / P3 / P4</h2>
+        <p class="hint">Fill any combination of boxes. Each URL is tagged with the box it came from. Duplicates anywhere are flagged red.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="userInput">Your Name / Email (Required)</label>
+        <input type="text" id="userInput" placeholder="e.g. John Doe" maxlength="50" />
+      </div>
+
+      <div class="prio-grid">
+        <div class="prio-cell">
+          <label for="p1Input"><span class="priority-badge p-P1">P1</span> P1 URLs (one per line)</label>
+          <textarea id="p1Input" class="p1-area" rows="6" placeholder="https://www.example-p1.com&#10;http://192.168.1.1:80"></textarea>
+        </div>
+        <div class="prio-cell">
+          <label for="p2Input"><span class="priority-badge p-P2">P2</span> P2 URLs (one per line)</label>
+          <textarea id="p2Input" class="p2-area" rows="6" placeholder="https://www.example-p2.com&#10;xn--80ak6aa92e.xn--p1ai"></textarea>
+        </div>
+        <div class="prio-cell">
+          <label for="p3Input"><span class="priority-badge p-P3">P3</span> P3 URLs (one per line)</label>
+          <textarea id="p3Input" class="p3-area" rows="6" placeholder="www.example-p3.com"></textarea>
+        </div>
+        <div class="prio-cell">
+          <label for="p4Input"><span class="priority-badge p-P4">P4</span> P4 URLs (one per line)</label>
+          <textarea id="p4Input" class="p4-area" rows="6" placeholder="www.example-p4.com"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <span class="bulk-info" id="bulkInfo"></span>
+        <button id="clearBtn" class="btn btn-ghost">Clear</button>
+        <button id="addBtn" class="btn btn-primary" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add All URLs
+        </button>
+        <span id="formMsg" class="form-msg"></span>
+      </div>
+    </section>
+
+    <section class="card filter-card">
+      <div class="filters">
+        <input type="text" id="searchInput" class="search" placeholder="🔍 Search URLs, users..." />
+        <select id="statusFilter" class="select">
+          <option value="all">All statuses</option>
+          <option value="unique">Unique only</option>
+          <option value="duplicate">Duplicates only</option>
+        </select>
+        <select id="priorityFilter" class="select">
+          <option value="all">All priorities</option>
+          <option value="P1">P1 only</option>
+          <option value="P2">P2 only</option>
+          <option value="P3">P3 only</option>
+          <option value="P4">P4 only</option>
+          <option value="Unknown">Unknown only</option>
+        </select>
+        <div class="date-wrap">
+          <input type="date" id="datePicker" />
+          <button class="date-chip active" data-date="all" id="dateChipAll">All</button>
+          <button class="date-chip" data-date="today" id="dateChipToday">Today</button>
+        </div>
+        <button id="copyUniqueBtn" class="btn btn-ghost" title="Copy all unique URLs from current filter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copy Unique (Filtered)
+        </button>
+        <button id="exportExcelBtn" class="btn btn-excel" title="Export currently filtered rows to Excel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export Excel
+        </button>
+        <button id="dayReportBtn" class="btn btn-violet" title="Show P1–P4 breakdown for the selected day">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Day Report
+        </button>
+      </div>
+    </section>
+
+    <section class="card table-card">
+      <div class="table-wrap">
+        <table id="tagsTable">
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th>URL / IP</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Added By</th>
+              <th>Date Added</th>
+              <th style="width: 100px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr class="empty-row">
+              <td colspan="7">
+                <div class="empty-state">
+                  <div class="empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  </div>
+                  <p>No entries yet. Add some URLs above to get started.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="pagination-container" id="paginationContainer">
+        <div class="page-info" id="pageInfo">Showing 0 - 0 of 0 entries</div>
+        <div class="page-controls">
+          <button id="prevPageBtn" class="btn btn-ghost" disabled>Previous</button>
+          <span id="pageNumbers" class="page-info" style="margin: 0 10px;">Page 1</span>
+          <button id="nextPageBtn" class="btn btn-ghost" disabled>Next</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Immutable Tags Monitor · Built with Firebase</span>
+  </footer>
+</div>
+
+<!-- Batch Success Modal -->
+<div id="batchModal" class="modal-overlay">
+  <div class="batch-modal">
+    <div class="batch-header">
+      <div>
+        <div class="batch-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          Batch Successfully Added
+        </div>
+        <div class="batch-subtitle" id="batchSubtitle">Just now</div>
+      </div>
+      <button id="batchCloseBtn" class="modal-close-btn" title="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="batch-content" id="batchContent"></div>
+    <div class="batch-footer">
+      <button id="batchDismissBtn" class="btn btn-ghost">Dismiss</button>
+      <button id="batchCopyBtn" class="btn btn-success">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy All Unique
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Day Report Modal -->
+<div id="reportModal" class="modal-overlay">
+  <div class="batch-modal">
+    <div class="batch-header" style="background: linear-gradient(90deg, rgba(124,58,237,0.12) 0%, rgba(124,58,237,0) 100%);">
+      <div>
+        <div class="batch-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--violet);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Day Report · P1–P4 Breakdown
+        </div>
+        <div class="batch-subtitle" id="reportSubtitle">—</div>
+      </div>
+      <button id="reportCloseBtn" class="modal-close-btn" title="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="batch-content" id="reportContent"></div>
+    <div class="batch-footer">
+      <button id="reportDismissBtn" class="btn btn-ghost">Dismiss</button>
+      <button id="reportCopyAllBtn" class="btn btn-violet">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy Full Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <h3>Edit Entry</h3>
+    <div class="form-group">
+      <label for="editUrl">URL (immutable — cannot be changed)</label>
+      <input type="text" id="editUrl" disabled />
+    </div>
+    <div class="form-group">
+      <label for="editPriority">Priority</label>
+      <select id="editPriority">
+        <option value="P1">P1 — Critical</option>
+        <option value="P2">P2 — High</option>
+        <option value="P3">P3 — Medium</option>
+        <option value="P4">P4 — Low</option>
+        <option value="Unknown">Unknown (legacy)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button id="editCancel" class="btn btn-ghost">Cancel</button>
+      <button id="editSave" class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="deleteModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <h3>Delete Entry?</h3>
+    <p>This will permanently remove the URL entry. This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button id="deleteCancel" class="btn btn-ghost">Cancel</button>
+      <button id="deleteConfirm" class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Saving URLs...</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, update, remove, onValue }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDSc01_QwDDZc61e_rILhWpvoclSD7z0GE",
+  authDomain: "immutabletags.firebaseapp.com",
+  databaseURL: "https://immutabletags-default-rtdb.firebaseio.com",
+  projectId: "immutabletags",
+  storageBucket: "immutabletags.firebasestorage.app",
+  messagingSenderId: "431221492042",
+  appId: "1:431221492042:web:f474e19194b125e3bed9b3",
+  measurementId: "G-ERX7PNQ8F4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const entriesRef = ref(db, 'tags');
+
+// ---------- State ----------
+let entries = {}; 
+let editingKey = null;
+let deletingKey = null;
+let currentBatchId = null; 
+const PAGE_SIZE = 2000;
+let currentPage = 1;
+let allFilteredRows = []; 
+let selectedDay = 'all';   // 'all' | 'today' | 'YYYY-MM-DD'
+
+// ---------- Helpers ----------
+const $ = (id) => document.getElementById(id);
+
+const sanitizeUrl = (u) => {
+  let clean = String(u).trim().toLowerCase();
+  clean = clean.replace(/^https?:\/\//, '');
+  clean = clean.replace(/^www\./, '');
+  clean = clean.replace(/\/+$/, '');
+  clean = clean.replace(/:80$/, '').replace(/:443$/, '');
+  return clean;
+};
+
+const fmtDate = (ts) => {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+};
+
+const dayKey = (ts) => {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
+const todayKey = () => dayKey(Date.now());
+
+const getPriority = (e) => {
+  const p = e && e.priority;
+  return (p && ['P1','P2','P3','P4','Unknown'].includes(p)) ? p : 'Unknown';
+};
+
+const activeDay = () => {
+  if (selectedDay === 'all') return null;
+  if (selectedDay === 'today') return todayKey();
+  return selectedDay;
+};
+
+let toastTimer;
+function showToast(msg, type = 'ok') {
+  const t = $('toast');
+  t.innerHTML = (type === 'ok' ? '✅ ' : '❌ ') + msg;
+  t.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function computeStatuses() {
+  const byUrl = {};
+  Object.entries(entries).forEach(([key, e]) => {
+    const norm = sanitizeUrl(e.url);
+    if (!norm) return;
+    if (!byUrl[norm]) byUrl[norm] = [];
+    byUrl[norm].push({ key, entry: e });
+  });
+
+  const statusMap = {};
+  Object.values(byUrl).forEach(group => {
+    if (group.length === 1) {
+      statusMap[group[0].key] = 'unique';
+    } else {
+      group.forEach(g => { statusMap[g.key] = 'duplicate'; });
+    }
+  });
+  return statusMap;
+}
+
+function showBatchModal(batchId) {
+  if (!batchId) return;
+
+  const statuses = computeStatuses();
+  const batchEntries = Object.entries(entries)
+    .filter(([key, e]) => e.batchId === batchId);
+    
+  if (batchEntries.length === 0) return;
+
+  const content = $('batchContent');
+  const subtitle = $('batchSubtitle');
+
+  const groups = {};
+  batchEntries.forEach(([key, e]) => {
+    const p = getPriority(e);
+    if (!groups[p]) groups[p] = { unique: [], duplicate: [] };
+    if (statuses[key] === 'unique') groups[p].unique.push({ key, e });
+    else groups[p].duplicate.push({ key, e });
+  });
+
+  const order = ['P1','P2','P3','P4','Unknown'].filter(p => groups[p]);
+  let totalUnique = 0;
+  order.forEach(p => { totalUnique += groups[p].unique.length; });
+
+  let html = '';
+  order.forEach(p => {
+    const g = groups[p];
+    const tagClass = `p-${p}`;
+    html += `
+      <div class="batch-group">
+        <div class="batch-group-header">
+          <div class="batch-group-title">
+            <span class="priority-badge ${tagClass}">${p}</span>
+            <span class="batch-group-count">
+              <strong>${g.unique.length}</strong> unique · <strong>${g.duplicate.length}</strong> duplicate
+            </span>
+          </div>
+        </div>
+        ${g.unique.length === 0
+          ? `<div class="report-empty">No unique ${p} URLs in this batch.</div>`
+          : `<div class="url-chips-container">
+              ${g.unique.map(({e}) => `
+                <div class="url-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                  ${escapeHtml(e.url)}
+                </div>
+              `).join('')}
+            </div>`}
+      </div>
+    `;
+  });
+
+  if (totalUnique === 0) {
+    content.innerHTML = `<div class="batch-empty">All URLs in this batch were duplicates. Nothing to copy.</div>`;
+    $('batchCopyBtn').style.display = 'none';
+  } else {
+    $('batchCopyBtn').style.display = 'inline-flex';
+    content.innerHTML = html;
+  }
+  
+  const first = batchEntries[0][1];
+  subtitle.textContent = `Added on ${fmtDate(first.createdAt)}`;
+  $('batchModal').classList.add('show');
+}
+
+function render() {
+  const statuses = computeStatuses();
+  const search = $('searchInput').value.trim().toLowerCase();
+  const statusFilter = $('statusFilter').value;
+  const priorityFilter = $('priorityFilter').value;
+  const day = activeDay();
+
+  let rows = Object.entries(entries).map(([key, e]) => ({
+    key, ...e, status: statuses[key] || 'unique',
+    priority: getPriority(e)
+  }));
+
+  const total = rows.length;
+  const unique = rows.filter(r => r.status === 'unique').length;
+  const dup = rows.filter(r => r.status === 'duplicate').length;
+  $('totalCount').textContent = total;
+  $('uniqueCount').textContent = unique;
+  $('dupCount').textContent = dup;
+
+  if (search) {
+    rows = rows.filter(r =>
+      (r.url || '').toLowerCase().includes(search) ||
+      (r.user || '').toLowerCase().includes(search) ||
+      (r.priority || '').toLowerCase().includes(search)
+    );
+  }
+  if (statusFilter !== 'all') rows = rows.filter(r => r.status === statusFilter);
+  if (priorityFilter !== 'all') rows = rows.filter(r => r.priority === priorityFilter);
+  if (day) rows = rows.filter(r => dayKey(r.createdAt || Date.now()) === day);
+
+  rows.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  allFilteredRows = rows;
+
+  const totalPages = Math.ceil(rows.length / PAGE_SIZE) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, rows.length);
+  const pageRows = rows.slice(startIndex, endIndex);
+
+  $('pageInfo').textContent = rows.length > 0 
+    ? `Showing ${startIndex + 1} - ${endIndex} of ${rows.length} entries`
+    : 'Showing 0 - 0 of 0 entries';
+  $('pageNumbers').textContent = `Page ${currentPage} of ${totalPages}`;
+  $('prevPageBtn').disabled = currentPage === 1;
+  $('nextPageBtn').disabled = currentPage === totalPages || rows.length === 0;
+
+  const tbody = $('tableBody');
+  tbody.innerHTML = '';
+
+  if (pageRows.length === 0) {
+    tbody.innerHTML = `
+      <tr class="empty-row"><td colspan="7">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          </div>
+          <p>${total === 0 ? 'No entries yet. Add some URLs above to get started.' : 'No entries match your search or filters.'}</p>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  
+  pageRows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    if (r.status === 'duplicate') tr.className = 'duplicate';
+
+    const isRecent = currentBatchId && r.batchId === currentBatchId;
+    const displayIndex = startIndex + i + 1;
+
+    tr.innerHTML = `
+      <td class="date-cell">${displayIndex}</td>
+      <td class="url-cell">${escapeHtml(r.url)}</td>
+      <td><span class="priority-badge p-${r.priority}">${r.priority}</span></td>
+      <td>
+        <span class="badge badge-${r.status}">
+          ${r.status === 'duplicate' ? '⚠ Duplicate' : '✓ Unique'}
+        </span>
+      </td>
+      <td class="user-cell">${escapeHtml(r.user || 'Anonymous')}</td>
+      <td class="date-cell">
+        ${fmtDate(r.createdAt)}
+        ${isRecent ? '<span class="badge badge-new" style="font-size:9px;">NEW</span>' : ''}
+      </td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn success" title="Copy URL" data-copy="${r.key}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <button class="icon-btn" title="Edit Entry" data-edit="${r.key}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="icon-btn danger" title="Delete" data-delete="${r.key}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </td>
+    `;
+    fragment.appendChild(tr);
+  });
+
+  tbody.appendChild(fragment);
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])
+  );
+}
+
+function collectInputs() {
+  const p1 = $('p1Input').value.split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+  const p2 = $('p2Input').value.split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+  const p3 = $('p3Input').value.split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+  const p4 = $('p4Input').value.split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+  return { p1, p2, p3, p4 };
+}
+
+function updateBulkInfo() {
+  const { p1, p2, p3, p4 } = collectInputs();
+  const total = p1.length + p2.length + p3.length + p4.length;
+  
+  if (total === 0) {
+    $('bulkInfo').innerHTML = '';
+    return;
+  }
+
+  const existingUrls = new Set(Object.values(entries).map(e => sanitizeUrl(e.url)));
+  let dupExisting = 0;
+  let dupWithinSubmit = 0;
+  const seen = new Set();
+
+  const check = (u) => {
+    const norm = sanitizeUrl(u);
+    if (existingUrls.has(norm)) dupExisting++;
+    if (seen.has(norm)) dupWithinSubmit++;
+    seen.add(norm);
+  };
+  p1.forEach(check); p2.forEach(check); p3.forEach(check); p4.forEach(check);
+
+  let preview = '';
+  const firstUrl = p1[0] || p2[0] || p3[0] || p4[0];
+  if (firstUrl) {
+    preview = `<span style="color: var(--primary); display: block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+      🔍 Live Preview: ${escapeHtml(sanitizeUrl(firstUrl))}
+    </span>`;
+  }
+
+  let html = `<strong>P1:</strong> ${p1.length} · <strong>P2:</strong> ${p2.length} · <strong>P3:</strong> ${p3.length} · <strong>P4:</strong> ${p4.length}`;
+  if (dupExisting > 0) {
+    html += `<span class="duplicate-warning">⚠ ${dupExisting} URL(s) already exist in DB → will be red (duplicate).</span>`;
+  }
+  if (dupWithinSubmit > 0) {
+    html += `<span class="duplicate-warning">⚠ ${dupWithinSubmit} URL(s) appear more than once in this submit → will be red (duplicate).</span>`;
+  }
+  html += preview;
+  
+  $('bulkInfo').innerHTML = html;
+}
+
+function checkFormState() {
+  const hasName = $('userInput').value.trim().length > 0;
+  const { p1, p2, p3, p4 } = collectInputs();
+  const hasUrls = (p1.length + p2.length + p3.length + p4.length) > 0;
+  $('addBtn').disabled = !(hasName && hasUrls);
+}
+
+['p1Input','p2Input','p3Input','p4Input'].forEach(id => {
+  $(id).addEventListener('input', () => { updateBulkInfo(); checkFormState(); });
+});
+$('userInput').addEventListener('input', checkFormState);
+
+onValue(entriesRef, (snap) => {
+  entries = snap.val() || {};
+  render();
+  updateBulkInfo(); 
+  updateDbBulkInfo();
+  checkDbFormState();
+}, (err) => {
+  console.error(err);
+  showToast('Failed to load data. Check Firebase rules.', 'err');
+});
+
+$('addBtn').addEventListener('click', async () => {
+  const userName = $('userInput').value.trim();
+  if (!userName) { setMsg('Please enter your name first.', 'err'); return; }
+
+  const { p1, p2, p3, p4 } = collectInputs();
+  const total = p1.length + p2.length + p3.length + p4.length;
+  if (total === 0) { setMsg('Please enter at least one URL.', 'err'); return; }
+
+  $('addBtn').disabled = true;
+  setMsg('Saving…', '');
+  
+  if (total > 100) {
+    $('loadingText').textContent = `Saving ${total} URLs...`;
+    $('loadingOverlay').classList.add('show');
+  }
+
+  try {
+    const now = Date.now();
+    const batchId = 'batch_' + now + '_' + Math.random().toString(36).substr(2, 5);
+    currentBatchId = batchId; 
+    
+    const updates = {};
+    const addUrl = (url, priority) => {
+      const newRef = push(entriesRef);
+      updates[newRef.key] = {
+        url: sanitizeUrl(url),
+        priority: priority,
+        user: userName,
+        createdAt: now,
+        batchId: batchId
+      };
+    };
+    p1.forEach(u => addUrl(u, 'P1'));
+    p2.forEach(u => addUrl(u, 'P2'));
+    p3.forEach(u => addUrl(u, 'P3'));
+    p4.forEach(u => addUrl(u, 'P4'));
+
+    await update(ref(db, 'tags'), updates);
+    
+    setMsg(`✓ Added P1:${p1.length} P2:${p2.length} P3:${p3.length} P4:${p4.length}.`, 'ok');
+    
+    $('p1Input').value = ''; $('p2Input').value = '';
+    $('p3Input').value = ''; $('p4Input').value = '';
+    
+    updateBulkInfo();
+    checkFormState();
+    
+    currentPage = 1;
+    showBatchModal(batchId);
+
+    showToast(`Added ${total} URLs`, 'ok');
+    setTimeout(() => setMsg('', ''), 3500);
+  } catch (err) {
+    console.error(err);
+    setMsg('Failed to save. Check Firebase rules.', 'err');
+    showToast('Failed to save batch.', 'err');
+  } finally {
+    $('addBtn').disabled = false;
+    $('loadingOverlay').classList.remove('show');
+  }
+});
+
+function setMsg(msg, type) {
+  const el = $('formMsg');
+  el.textContent = msg;
+  el.className = `form-msg ${type}`;
+}
+
+$('clearBtn').addEventListener('click', () => {
+  $('p1Input').value = ''; $('p2Input').value = '';
+  $('p3Input').value = ''; $('p4Input').value = '';
+  setMsg('', '');
+  updateBulkInfo();
+  checkFormState();
+});
+
+/* ============================================================
+   Add for Database (backdated, Unknown priority)
+   ============================================================ */
+
+(function initDbDate() {
+  $('dbDateInput').value = todayKey();
+})();
+
+function collectDbInputs() {
+  return $('dbUrlInput').value
+    .split(/\r?\n/)
+    .map(u => u.trim())
+    .filter(Boolean);
+}
+
+function updateDbBulkInfo() {
+  const urls = collectDbInputs();
+  const total = urls.length;
+
+  if (total === 0) {
+    $('dbBulkInfo').innerHTML = '';
+    return;
+  }
+
+  const existingUrls = new Set(Object.values(entries).map(e => sanitizeUrl(e.url)));
+  let dupExisting = 0;
+  let dupWithinSubmit = 0;
+  const seen = new Set();
+
+  urls.forEach(u => {
+    const norm = sanitizeUrl(u);
+    if (existingUrls.has(norm)) dupExisting++;
+    if (seen.has(norm)) dupWithinSubmit++;
+    seen.add(norm);
+  });
+
+  let html = `<strong>${total}</strong> URL(s) ready`;
+  if (dupExisting > 0) {
+    html += `<span class="duplicate-warning">⚠ ${dupExisting} already exist in DB → will be red (duplicate).</span>`;
+  }
+  if (dupWithinSubmit > 0) {
+    html += `<span class="duplicate-warning">⚠ ${dupWithinSubmit} appear more than once here → will be red (duplicate).</span>`;
+  }
+
+  const firstUrl = urls[0];
+  if (firstUrl) {
+    html += `<span style="color: var(--violet); display: block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+      🔍 Live Preview: ${escapeHtml(sanitizeUrl(firstUrl))}
+    </span>`;
+  }
+
+  $('dbBulkInfo').innerHTML = html;
+}
+
+function checkDbFormState() {
+  const hasName = $('dbUserInput').value.trim().length > 0;
+  const urls = collectDbInputs();
+  const hasDate = !!$('dbDateInput').value;
+  $('dbAddBtn').disabled = !(hasName && urls.length > 0 && hasDate);
+}
+
+$('dbUrlInput').addEventListener('input', () => {
+  updateDbBulkInfo();
+  checkDbFormState();
+});
+$('dbUserInput').addEventListener('input', checkDbFormState);
+$('dbDateInput').addEventListener('input', checkDbFormState);
+
+$('dbClearBtn').addEventListener('click', () => {
+  $('dbUrlInput').value = '';
+  $('dbDateInput').value = todayKey();
+  $('dbFormMsg').textContent = '';
+  $('dbFormMsg').className = 'form-msg';
+  updateDbBulkInfo();
+  checkDbFormState();
+});
+
+$('dbAddBtn').addEventListener('click', async () => {
+  const userName = $('dbUserInput').value.trim();
+  if (!userName) {
+    dbSetMsg('Please enter your name first.', 'err');
+    return;
+  }
+
+  const urls = collectDbInputs();
+  if (urls.length === 0) {
+    dbSetMsg('Please enter at least one URL.', 'err');
+    return;
+  }
+
+  const dateVal = $('dbDateInput').value;
+  if (!dateVal) {
+    dbSetMsg('Please choose a date.', 'err');
+    return;
+  }
+
+  const [y, m, d] = dateVal.split('-').map(Number);
+  const recordedTs = new Date(y, (m - 1), d, 12, 0, 0, 0).getTime();
+
+  $('dbAddBtn').disabled = true;
+  dbSetMsg('Saving…', '');
+
+  if (urls.length > 100) {
+    $('loadingText').textContent = `Saving ${urls.length} URLs...`;
+    $('loadingOverlay').classList.add('show');
+  }
+
+  try {
+    const now = Date.now();
+    const batchId = 'db_batch_' + now + '_' + Math.random().toString(36).substr(2, 5);
+    currentBatchId = batchId;
+
+    const updates = {};
+    urls.forEach(u => {
+      const newRef = push(entriesRef);
+      updates[newRef.key] = {
+        url: sanitizeUrl(u),
+        priority: 'Unknown',
+        user: userName,
+        createdAt: recordedTs,
+        batchId: batchId,
+        source: 'manual-db'
+      };
+    });
+
+    await update(ref(db, 'tags'), updates);
+
+    dbSetMsg(`✓ Added ${urls.length} URL(s) for ${dateVal}.`, 'ok');
+
+    $('dbUrlInput').value = '';
+    updateDbBulkInfo();
+    checkDbFormState();
+
+    currentPage = 1;
+    showBatchModal(batchId);
+    showToast(`Added ${urls.length} URLs for ${dateVal}`, 'ok');
+    setTimeout(() => dbSetMsg('', ''), 3500);
+  } catch (err) {
+    console.error(err);
+    dbSetMsg('Failed to save. Check Firebase rules.', 'err');
+    showToast('Failed to save batch.', 'err');
+  } finally {
+    $('dbAddBtn').disabled = false;
+    $('loadingOverlay').classList.remove('show');
+  }
+});
+
+function dbSetMsg(msg, type) {
+  const el = $('dbFormMsg');
+  el.textContent = msg;
+  el.className = `form-msg ${type}`;
+}
+
+/* ============================================================
+   End Add for Database
+   ============================================================ */
+
+function copyUrlsToClipboard(urlsToCopy, label) {
+  if (!urlsToCopy || urlsToCopy.length === 0) {
+    showToast('No valid unique URLs found to copy.', 'err');
+    return;
+  }
+  const text = urlsToCopy.join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast(`Copied ${urlsToCopy.length} URL(s) ${label}!`, 'ok'))
+    .catch(err => {
+      console.error(err);
+      showToast('Failed to copy. Browser issue.', 'err');
+    });
+}
+
+/* ---------- Batch copy ---------- */
+$('batchCopyBtn').addEventListener('click', () => {
+  if (!currentBatchId) return;
+  const statuses = computeStatuses();
+  const batchEntries = Object.entries(entries)
+    .filter(([key, e]) => e.batchId === currentBatchId && statuses[key] === 'unique');
+
+  const byPrio = { P1: [], P2: [], P3: [], P4: [], Unknown: [] };
+  batchEntries.forEach(([key, e]) => {
+    const p = getPriority(e);
+    if (byPrio[p]) byPrio[p].push(e.url);
+  });
+
+  const lines = [];
+  ['P1','P2','P3','P4','Unknown'].forEach(p => {
+    if (byPrio[p].length === 0) return;
+    lines.push(p);
+    byPrio[p].forEach(u => lines.push(u));
+    lines.push('');
+  });
+
+  if (lines.length === 0) {
+    showToast('Nothing unique in this batch.', 'err');
+    return;
+  }
+
+  navigator.clipboard.writeText(lines.join('\n').trim())
+    .then(() => showToast('Batch copied!', 'ok'))
+    .catch(err => { console.error(err); showToast('Copy failed.', 'err'); });
+});
+
+/* ---------- Copy Filtered ---------- */
+$('copyUniqueBtn').addEventListener('click', () => {
+  const uniqueEntries = allFilteredRows.filter(r => r.status === 'unique');
+  if (uniqueEntries.length === 0) {
+    showToast('No valid unique URLs found in the current filter.', 'err');
+    return;
+  }
+
+  const byPrio = { P1: [], P2: [], P3: [], P4: [], Unknown: [] };
+  uniqueEntries.forEach(r => {
+    const p = r.priority;
+    if (byPrio[p]) byPrio[p].push(r.url);
+  });
+
+  const lines = [];
+  ['P1','P2','P3','P4','Unknown'].forEach(p => {
+    if (byPrio[p].length === 0) return;
+    lines.push(p);
+    byPrio[p].forEach(u => lines.push(u));
+    lines.push(''); 
+  });
+
+  navigator.clipboard.writeText(lines.join('\n').trim())
+    .then(() => showToast('Unique URLs copied from filter!', 'ok'))
+    .catch(err => { console.error(err); showToast('Copy failed.', 'err'); });
+});
+
+/* ---------- Export to Excel ---------- */
+$('exportExcelBtn').addEventListener('click', () => {
+  if (allFilteredRows.length === 0) {
+    showToast('No data to export.', 'err');
+    return;
+  }
+
+  let xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Header">
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Bold="1"/>
+   <Interior ss:Color="#F3F4F6" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="Duplicate">
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#991B1B"/>
+   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="CellBorder">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Immutable Tags">
+  <Table>
+   <Row>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Index</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">URL / IP</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Priority</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Status</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Added By</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">Date Added</Data></Cell>
+   </Row>
+`;
+
+  allFilteredRows.forEach((r, i) => {
+    const isDup = r.status === 'duplicate';
+    const styleId = isDup ? 'Duplicate' : 'CellBorder';
+    const userStr = escapeHtml(r.user || 'Anonymous');
+    const urlStr = escapeHtml(r.url);
+    const statusStr = r.status === 'unique' ? 'Unique' : 'Duplicate';
+    const dateStr = fmtDate(r.createdAt);
+
+    xml += `   <Row>
+    <Cell ss:StyleID="${styleId}"><Data ss:Type="Number">${i + 1}</Data></Cell>
+    <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${urlStr}</Data></Cell>
+    <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${r.priority}</Data></Cell>
+    <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${statusStr}</Data></Cell>
+    <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${userStr}</Data></Cell>
+    <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${dateStr}</Data></Cell>
+   </Row>
+`;
+  });
+
+  xml += `  </Table>
+ </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  
+  const dateStr = selectedDay === 'all' ? 'All' : (selectedDay === 'today' ? todayKey() : selectedDay);
+  link.download = `Immutable_Tags_Export_${dateStr}.xls`;
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  showToast(`Exported ${allFilteredRows.length} rows to Excel!`, 'ok');
+});
+
+function closeBatchModal() { $('batchModal').classList.remove('show'); }
+$('batchCloseBtn').addEventListener('click', closeBatchModal);
+$('batchDismissBtn').addEventListener('click', closeBatchModal);
+$('batchModal').addEventListener('mousedown', (e) => {
+  if (e.target === $('batchModal')) closeBatchModal();
+});
+
+/* ---------- Day Report ---------- */
+function buildDayReport(dayStr) {
+  const statuses = computeStatuses();
+  const dayRows = Object.entries(entries)
+    .filter(([key, e]) => dayKey(e.createdAt || Date.now()) === dayStr)
+    .map(([key, e]) => ({
+      key, ...e, status: statuses[key] || 'unique',
+      priority: getPriority(e)
+    }));
+
+  const groups = { P1: { unique: [], duplicate: [] }, P2: { unique: [], duplicate: [] }, P3: { unique: [], duplicate: [] }, P4: { unique: [], duplicate: [] }, Unknown: { unique: [], duplicate: [] } };
+  
+  dayRows.forEach(r => {
+    if (!groups[r.priority]) groups[r.priority] = { unique: [], duplicate: [] };
+    if (r.status === 'unique') groups[r.priority].unique.push(r);
+    else groups[r.priority].duplicate.push(r);
+  });
+
+  return groups;
+}
+
+function showDayReport() {
+  const day = activeDay() || todayKey();
+  const groups = buildDayReport(day);
+
+  let totalUnique = 0, totalDup = 0;
+  Object.values(groups).forEach(g => {
+    totalUnique += g.unique.length;
+    totalDup += g.duplicate.length;
+  });
+
+  const content = $('reportContent');
+  const subtitle = $('reportSubtitle');
+  subtitle.textContent = `Day: ${day} · ${totalUnique} unique · ${totalDup} duplicate`;
+
+  let html = `
+    <div class="report-summary">
+      Showing <strong>${totalUnique}</strong> unique and <strong>${totalDup}</strong> duplicate URL(s) for <strong>${day}</strong>.
+    </div>
+  `;
+
+  if (groups.Unknown.unique.length > 0 || groups.Unknown.duplicate.length > 0) {
+    html += `
+      <div class="report-unknown-warn">
+        ⚠ <strong>${groups.Unknown.unique.length + groups.Unknown.duplicate.length}</strong> legacy entr(y/ies) with <strong>Unknown</strong> priority for this day.
+        Edit them to assign P1–P4 so they appear in the report sections.
+      </div>
+    `;
+  }
+
+  const order = ['P1','P2','P3','P4','Unknown'];
+  const anyGroup = order.some(p => groups[p].unique.length || groups[p].duplicate.length);
+
+  if (!anyGroup) {
+    html += `<div class="batch-empty">No entries for this day.</div>`;
+    content.innerHTML = html;
+    $('reportCopyAllBtn').style.display = 'inline-flex';
+    $('reportModal').classList.add('show');
+    return;
+  }
+
+  order.forEach(p => {
+    const g = groups[p];
+    if (g.unique.length === 0 && g.duplicate.length === 0) return;
+
+    const label = p === 'Unknown' ? 'Unknown (legacy)' : `${p}`;
+    html += `
+      <div class="report-group p-${p}">
+        <div class="report-group-header">
+          <div class="report-group-title">
+            <span class="priority-badge p-${p}">${p}</span>
+            <span>${label}</span>
+            <span class="report-group-counts">
+              — <strong>${g.unique.length}</strong> unique · 
+              <strong>${g.duplicate.length}</strong> duplicate
+            </span>
+          </div>
+          ${p !== 'Unknown' && g.unique.length > 0
+            ? `<button class="report-copy-btn" data-report-copy="${p}">
+                Copy ${p} Unique (${g.unique.length})
+              </button>`
+            : ''}
+        </div>
+        ${g.unique.length === 0
+          ? `<div class="report-empty">No unique URLs for ${p} on this day.</div>`
+          : `<ul class="report-url-list">
+              ${g.unique.map(r => `<li>${escapeHtml(r.url)}</li>`).join('')}
+            </ul>`}
+        ${g.duplicate.length > 0
+          ? `<div class="report-empty" style="margin-top:8px; color: var(--danger);">
+              ⚠ ${g.duplicate.length} duplicate URL(s) excluded from copy.
+            </div>`
+          : ''}
+      </div>
+    `;
+  });
+
+  content.innerHTML = html;
+  $('reportCopyAllBtn').style.display = 'inline-flex';
+  $('reportModal').classList.add('show');
+}
+
+$('reportContent').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-report-copy]');
+  if (!btn) return;
+  const p = btn.dataset.reportCopy;
+  const day = activeDay() || todayKey();
+  const groups = buildDayReport(day);
+  const urls = groups[p].unique.map(r => r.url);
+  if (urls.length === 0) { showToast(`No unique ${p} URLs for this day.`, 'err'); return; }
+  copyUrlsToClipboard(urls, `(${p} · ${day})`);
+});
+
+$('reportCopyAllBtn').addEventListener('click', () => {
+  const day = activeDay() || todayKey();
+  const groups = buildDayReport(day);
+
+  const lines = [];
+  
+  ['P1','P2','P3','P4'].forEach(p => {
+    const g = groups[p];
+    if (g.unique.length === 0) return;
+    g.unique.forEach(r => lines.push(r.url));
+    if (g.duplicate.length > 0) {
+      lines.push(`(${g.duplicate.length} duplicate(s) skipped)`);
+    }
+    lines.push(''); 
+  });
+
+  if (lines.length === 0) { showToast('Nothing unique to copy for this day.', 'err'); return; }
+
+  navigator.clipboard.writeText(lines.join('\n').trim())
+    .then(() => showToast(`Full report copied (${day})!`, 'ok'))
+    .catch(err => { console.error(err); showToast('Copy failed.', 'err'); });
+});
+
+function closeReportModal() { $('reportModal').classList.remove('show'); }
+$('reportCloseBtn').addEventListener('click', closeReportModal);
+$('reportDismissBtn').addEventListener('click', closeReportModal);
+$('reportModal').addEventListener('mousedown', (e) => {
+  if (e.target === $('reportModal')) closeReportModal();
+});
+
+/* ---------- Filters ---------- */
+['searchInput','statusFilter','priorityFilter'].forEach(id =>
+  $(id).addEventListener('input', () => { currentPage = 1; render(); })
+);
+
+$('datePicker').addEventListener('change', (e) => {
+  const val = e.target.value;
+  if (val) {
+    selectedDay = val;
+    $('dateChipAll').classList.remove('active');
+    $('dateChipToday').classList.remove('active');
+  } else {
+    selectedDay = 'all';
+    $('dateChipAll').classList.add('active');
+    $('dateChipToday').classList.remove('active');
+  }
+  currentPage = 1;
+  render();
+});
+
+$('dateChipAll').addEventListener('click', () => {
+  selectedDay = 'all';
+  $('datePicker').value = '';
+  $('dateChipAll').classList.add('active');
+  $('dateChipToday').classList.remove('active');
+  currentPage = 1;
+  render();
+});
+
+$('dateChipToday').addEventListener('click', () => {
+  const t = todayKey();
+  selectedDay = 'today';
+  $('datePicker').value = t;
+  $('dateChipToday').classList.add('active');
+  $('dateChipAll').classList.remove('active');
+  currentPage = 1;
+  render();
+});
+
+$('dayReportBtn').addEventListener('click', () => {
+  if (selectedDay === 'all') {
+    selectedDay = 'today';
+    $('datePicker').value = todayKey();
+    $('dateChipToday').classList.add('active');
+    $('dateChipAll').classList.remove('active');
+    currentPage = 1;
+    render();
+  }
+  showDayReport();
+});
+
+/* ---------- Pagination ---------- */
+$('prevPageBtn').addEventListener('click', () => {
+  if (currentPage > 1) { currentPage--; render(); }
+});
+$('nextPageBtn').addEventListener('click', () => {
+  const totalPages = Math.ceil(allFilteredRows.length / PAGE_SIZE);
+  if (currentPage < totalPages) { currentPage++; render(); }
+});
+
+/* ---------- Row actions ---------- */
+$('tableBody').addEventListener('click', (e) => {
+  const copyBtn = e.target.closest('[data-copy]');
+  const editBtn = e.target.closest('[data-edit]');
+  const delBtn = e.target.closest('[data-delete]');
+  
+  if (copyBtn) {
+    const key = copyBtn.dataset.copy;
+    const entry = entries[key];
+    if (entry && entry.url) {
+      navigator.clipboard.writeText(entry.url).then(() => {
+        const originalHtml = copyBtn.innerHTML;
+        copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        copyBtn.style.color = 'var(--success)';
+        copyBtn.style.borderColor = 'var(--success)';
+        showToast('URL copied to clipboard!', 'ok');
+        setTimeout(() => {
+          copyBtn.innerHTML = originalHtml;
+          copyBtn.style.color = '';
+          copyBtn.style.borderColor = '';
+        }, 1500);
+      }).catch(err => {
+        console.error(err);
+        showToast('Failed to copy.', 'err');
+      });
+    }
+  }
+
+  if (editBtn) openEdit(editBtn.dataset.edit);
+  if (delBtn) openDelete(delBtn.dataset.delete);
+});
+
+function openEdit(key) {
+  const entry = entries[key];
+  if (!entry) return;
+  editingKey = key;
+  $('editUrl').value = entry.url || '';
+  $('editPriority').value = getPriority(entry);
+  $('editModal').classList.remove('hidden');
+}
+$('editCancel').addEventListener('click', () => $('editModal').classList.add('hidden'));
+$('editSave').addEventListener('click', async () => {
+  if (!editingKey) return;
+  const priority = $('editPriority').value;
+  try {
+    const payload = {};
+    if (priority !== 'Unknown') payload.priority = priority;
+    await update(ref(db, `tags/${editingKey}`), payload);
+    $('editModal').classList.add('hidden');
+    showToast('Entry updated.', 'ok');
+  } catch (err) {
+    console.error(err);
+    showToast('Update failed.', 'err');
+  }
+});
+
+function openDelete(key) {
+  if (!entries[key]) return;
+  deletingKey = key;
+  $('deleteModal').classList.remove('hidden');
+}
+$('deleteCancel').addEventListener('click', () => $('deleteModal').classList.add('hidden'));
+$('deleteConfirm').addEventListener('click', async () => {
+  if (!deletingKey) return;
+  try {
+    await remove(ref(db, `tags/${deletingKey}`));
+    $('deleteModal').classList.add('hidden');
+    showToast('Entry deleted.', 'ok');
+  } catch (err) {
+    console.error(err);
+    showToast('Delete failed.', 'err');
+  }
+});
+
+document.querySelectorAll('#editModal .modal-backdrop, #deleteModal .modal-backdrop').forEach(b => {
+  b.addEventListener('click', () => {
+    $('editModal').classList.add('hidden');
+    $('deleteModal').classList.add('hidden');
+  });
+});
+
+/* ---------- Topbar toggles ---------- */
+const toggleTemplateBtn = $('toggleTemplateBtn');
+const templateDropdown = $('templateDropdown');
+const toggleDbBtn = $('toggleDbBtn');
+const dbDropdown = $('dbDropdown');
+
+toggleTemplateBtn.addEventListener('click', () => {
+  const isOpen = templateDropdown.classList.toggle('open');
+  toggleTemplateBtn.classList.toggle('active', isOpen);
+  // Close the other one so they don't stack
+  if (isOpen) {
+    dbDropdown.classList.remove('open');
+    toggleDbBtn.classList.remove('active');
+  }
+});
+
+toggleDbBtn.addEventListener('click', () => {
+  const isOpen = dbDropdown.classList.toggle('open');
+  toggleDbBtn.classList.toggle('active', isOpen);
+  // Close the other one so they don't stack
+  if (isOpen) {
+    templateDropdown.classList.remove('open');
+    toggleTemplateBtn.classList.remove('active');
+  }
+});
+
+/* ---------- Copy Template ---------- */
+$('copyTemplateBtn').addEventListener('click', () => {
+  const text = $('templateText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Template copied to clipboard!', 'ok');
+    const btn = $('copyTemplateBtn');
+    const original = btn.innerHTML;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+    btn.style.background = 'var(--success)';
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.style.background = '';
+    }, 1500);
+  }).catch(err => {
+    console.error(err);
+    showToast('Failed to copy template.', 'err');
+  });
+});
+</script>
+</body>
+</html>
