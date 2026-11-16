@@ -215,6 +215,8 @@ textarea { resize: vertical; min-height: 110px; font-family: 'JetBrains Mono', u
 .btn-violet:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-excel { background: #107c41; color: white; border: none; }
 .btn-excel:hover { background: #0c5e31; transform: translateY(-1px); }
+.btn-report { background: #0e7490; color: white; border: none; }
+.btn-report:hover { background: #0c5e73; transform: translateY(-1px); }
 .form-msg { font-size: 13px; margin-left: 8px; }
 .form-msg.ok { color: var(--success); }
 .form-msg.err { color: var(--danger); }
@@ -629,6 +631,10 @@ Thank you.</div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Export Excel
         </button>
+        <button id="exportReportBtn" class="btn btn-report" title="Export unique URLs grouped by priority into separate columns (A=P1, B=P2, C=P3, D=P4)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          Export Report (by Channel)
+        </button>
         <button id="dayReportBtn" class="btn btn-violet" title="Show P1–P4 breakdown for the selected day">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
           Day Report
@@ -784,18 +790,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, push, update, remove, onValue }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-// ============================================================
-// NEW DATABASE CONFIG (immutable-d8d21)
-// ============================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDJAhdWadMJcytL91HQZIKQm19eswZZJxQ",
-  authDomain: "immutable-d8d21.firebaseapp.com",
-  databaseURL: "https://immutable-d8d21-default-rtdb.firebaseio.com",
-  projectId: "immutable-d8d21",
-  storageBucket: "immutable-d8d21.firebasestorage.app",
-  messagingSenderId: "916533076706",
-  appId: "1:916533076706:web:da264d7b34ab6d6654b4bb",
-  measurementId: "G-8C74SNBSNN"
+  apiKey: "AIzaSyDSc01_QwDDZc61e_rILhWpvoclSD7z0GE",
+  authDomain: "immutabletags.firebaseapp.com",
+  databaseURL: "https://immutabletags-default-rtdb.firebaseio.com",
+  projectId: "immutabletags",
+  storageBucket: "immutabletags.firebasestorage.app",
+  messagingSenderId: "431221492042",
+  appId: "1:431221492042:web:f474e19194b125e3bed9b3",
+  measurementId: "G-ERX7PNQ8F4"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -1436,7 +1439,7 @@ $('copyUniqueBtn').addEventListener('click', () => {
     .catch(err => { console.error(err); showToast('Copy failed.', 'err'); });
 });
 
-/* ---------- Export to Excel ---------- */
+/* ---------- Export to Excel (flat table) ---------- */
 $('exportExcelBtn').addEventListener('click', () => {
   if (allFilteredRows.length === 0) {
     showToast('No data to export.', 'err');
@@ -1537,6 +1540,131 @@ $('exportExcelBtn').addEventListener('click', () => {
   URL.revokeObjectURL(url);
 
   showToast(`Exported ${allFilteredRows.length} rows to Excel!`, 'ok');
+});
+
+/* ============================================================
+   Export Report by Channel (unique URLs grouped into columns)
+   Column A = P1, Column B = P2, Column C = P3, Column D = P4
+   ============================================================ */
+$('exportReportBtn').addEventListener('click', () => {
+  // Unique only
+  const uniqueRows = allFilteredRows.filter(r => r.status === 'unique');
+  if (uniqueRows.length === 0) {
+    showToast('No unique URLs in the current filter to export.', 'err');
+    return;
+  }
+
+  // Bucket by priority, preserving order
+  const buckets = { P1: [], P2: [], P3: [], P4: [] };
+  uniqueRows.forEach(r => {
+    const p = r.priority;
+    if (buckets[p]) buckets[p].push(r.url);
+  });
+
+  // Only include priorities that actually have rows
+  const activePriorities = ['P1','P2','P3','P4'].filter(p => buckets[p].length > 0);
+
+  if (activePriorities.length === 0) {
+    showToast('No P1–P4 unique URLs found in the current filter.', 'err');
+    return;
+  }
+
+  const maxLen = Math.max(...activePriorities.map(p => buckets[p].length));
+
+  // Header labels
+  const headerLabels = {
+    P1: 'P1',
+    P2: 'P2',
+    P3: 'P3',
+    P4: 'P4'
+  };
+
+  // Column widths (Excel SpreadsheetML)
+  let colWidthsXml = '<Row ss:Height="24">';
+  activePriorities.forEach(() => {
+    colWidthsXml += '<Cell ss:StyleID="Header"/>';
+  });
+  colWidthsXml += '</Row>';
+
+  let headerRow = '   <Row>\n';
+  activePriorities.forEach(p => {
+    headerRow += `    <Cell ss:StyleID="Header"><Data ss:Type="String">${headerLabels[p]}</Data></Cell>\n`;
+  });
+  headerRow += '   </Row>\n';
+
+  // Data rows
+  let rowsXml = '';
+  for (let i = 0; i < maxLen; i++) {
+    rowsXml += '   <Row>\n';
+    activePriorities.forEach(p => {
+      const val = buckets[p][i];
+      if (val === undefined) {
+        rowsXml += `    <Cell ss:StyleID="CellBorder"/>\n`;
+      } else {
+        rowsXml += `    <Cell ss:StyleID="CellBorder"><Data ss:Type="String">${escapeHtml(val)}</Data></Cell>\n`;
+      }
+    });
+    rowsXml += '   </Row>\n';
+  }
+
+  let xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Header">
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Bold="1"/>
+   <Interior ss:Color="#F3F4F6" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="CellBorder">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Unique by Channel">
+  <Table>
+   <Column ss:Width="220"/>
+   <Column ss:Width="220"/>
+   <Column ss:Width="220"/>
+   <Column ss:Width="220"/>
+${headerRow}${rowsXml}  </Table>
+ </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const dateStr = selectedDay === 'all' ? 'All' : (selectedDay === 'today' ? todayKey() : selectedDay);
+  link.download = `Immutable_Tags_Report_${dateStr}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  const summary = activePriorities.map(p => `${p}: ${buckets[p].length}`).join(' · ');
+  showToast(`Report exported (${summary})`, 'ok');
 });
 
 function closeBatchModal() { $('batchModal').classList.remove('show'); }
